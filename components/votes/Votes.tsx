@@ -43,7 +43,7 @@ const Votes = ({
         targetType,
         voteType,
       });
-
+      // i added mew mew
       if (!result.success) {
         return toast.error("Failed to vote", {
           description: result.error?.message,
