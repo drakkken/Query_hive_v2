@@ -27,22 +27,24 @@ const LocalSearch = ({
 
   //use effect
   useEffect(() => {
-    if (searchQuery) {
-      const newUrl = formUrlQuery({
-        params: searchParams.toString(),
-        key: "query",
-        value: searchQuery,
-      });
-      router.push(newUrl, { scroll: false });
-    } else {
-      if (pathname === route) {
-        const newUrl = RemoveKeysFromQuery({
+    const debounce = setTimeout(() => {
+      if (searchQuery) {
+        const newUrl = formUrlQuery({
           params: searchParams.toString(),
-          keysToRemove: ["query"],
+          key: "query",
+          value: searchQuery,
         });
         router.push(newUrl, { scroll: false });
+      } else {
+        if (pathname === route) {
+          const newUrl = RemoveKeysFromQuery({
+            params: searchParams.toString(),
+            keysToRemove: ["query"],
+          });
+          router.push(newUrl, { scroll: false });
+        }
       }
-    }
+    }, 400);
   }, [searchQuery, router, route, searchParams, pathname]);
 
   return (
