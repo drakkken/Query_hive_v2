@@ -1,6 +1,7 @@
 import LeftSideBar from "@/components/navigation/LeftSideBar";
 import Navbar from "@/components/navigation/navbar/index";
 import RightSideBar from "@/components/navigation/RightSideBar";
+import LocalSearch from "@/components/search/LocalSearch";
 import React from "react";
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
