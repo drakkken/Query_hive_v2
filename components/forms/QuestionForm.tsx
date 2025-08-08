@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import React, { useRef, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import TagCard from "../cards/TagCard";
-
 import { Button } from "../ui/button";
 import {
   Form,
@@ -19,26 +18,74 @@ import { Input } from "../ui/input";
 // import Editor from "../editor/Editor";
 import { MDXEditorMethods } from "@mdxeditor/editor";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import z from "zod";
+
 const Editor = dynamic(() => import("../editor/Editor"), {
   ssr: false,
 });
-const QuestionForm = () => {
+interface Params {
+  question?: Question;
+  isEdit?: boolean;
+}
+
+const QuestionForm = ({ question, isEdit = false }: Params) => {
+  const router = useRouter();
   const editorRef = useRef<MDXEditorMethods>(null);
   const [isPending, startTransition] = useTransition();
-  const form = useForm({
+
+  //use form
+  const form = useForm<z.infer<typeof AskQuestionSchema>>({
     resolver: zodResolver(AskQuestionSchema),
     defaultValues: {
-      title: "",
-      content: "",
-      tags: [],
+      title: question?.title || "",
+      content: question?.content || "",
+      tags: question?.tags.map((tag) => tag.name) || [],
     },
   });
+
+  //
   const handleCreateQuestion = () => {
     //// handlling quetion creatign
   };
+  const handleTagRemove = (tag: string, field: { value: string[] }) => {
+    const newTags = field.value.filter((t) => t !== tag);
 
-  const handleInputKeyDown = () => {
-    /**/
+    form.setValue("tags", newTags);
+
+    if (newTags.length === 0) {
+      form.setError("tags", {
+        type: "manual",
+        message: "Tags are required",
+      });
+    }
+  };
+
+  const handleInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    field: { value: string[] }
+  ) => {
+    console.log(field, e);
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const tagInput = e.currentTarget.value.trim();
+
+      if (tagInput && tagInput.length < 15 && !field.value.includes(tagInput)) {
+        form.setValue("tags", [...field.value, tagInput]);
+        e.currentTarget.value = "";
+        form.clearErrors("tags");
+      } else if (tagInput.length > 15) {
+        form.setError("tags", {
+          type: "manual",
+          message: "Tag should be less than 15 characters",
+        });
+      } else if (field.value.includes(tagInput)) {
+        form.setError("tags", {
+          type: "manual",
+          message: "Tag already exists",
+        });
+      }
+    }
   };
 
   return (
@@ -106,7 +153,8 @@ const QuestionForm = () => {
                   <Input
                     className="paragraph-regular background-light700_dark300 light-border-2 text-dark300_light700 no-focus min-h-[56px] border"
                     placeholder="Add tags..."
-                    // onKeyDown={/*(e) => handleInputKeyDown(e, field)*/}
+                    onKeyDown={(e) => handleInputKeyDown(e, field)}
+                    // {...fields}
                   />
                   {field.value.length > 0 && (
                     <div className="flex-start mt-2.5 flex-wrap gap-2.5">
@@ -118,7 +166,7 @@ const QuestionForm = () => {
                           compact
                           remove
                           isButton
-                          //   handleRemove={() => handleTagRemove(tag, field)}
+                          handleRemove={() => handleTagRemove(tag, field)}
                         />
                       ))}
                     </div>
