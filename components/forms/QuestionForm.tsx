@@ -1,9 +1,19 @@
 "use client";
-import { AskQuestionSchema } from "@/lib/validations";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import React, { useRef, useTransition } from "react";
+import { MDXEditorMethods } from "@mdxeditor/editor";
 import { ReloadIcon } from "@radix-ui/react-icons";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import React, { useRef, useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
+
+import ROUTES from "@/constants/routes";
+import { toast } from "@/hooks/use-toast";
+import { createQuestion, editQuestion } from "@/lib/actions/question.action";
+import { AskQuestionSchema } from "@/lib/validations";
+
 import TagCard from "../cards/TagCard";
 import { Button } from "../ui/button";
 import {
@@ -14,20 +24,13 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "../ui/form";
 import { Input } from "../ui/input";
-// import Editor from "../editor/Editor";
-import { MDXEditorMethods } from "@mdxeditor/editor";
-import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import z from "zod";
-import ROUTES from "@/constants/routes";
-import { toast } from "sonner";
-import { createQuestion, editQuestion } from "@/lib/actions/question.action";
 
-const Editor = dynamic(() => import("../editor/Editor"), {
+const Editor = dynamic(() => import("@/components/editor"), {
   ssr: false,
 });
+
 interface Params {
   question?: Question;
   isEdit?: boolean;
@@ -38,62 +41,14 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
   const editorRef = useRef<MDXEditorMethods>(null);
   const [isPending, startTransition] = useTransition();
 
-  //use form
   const form = useForm<z.infer<typeof AskQuestionSchema>>({
     resolver: zodResolver(AskQuestionSchema),
     defaultValues: {
       title: question?.title || "",
       content: question?.content || "",
-      ///// i dont know how it is fethe in front end i forgot bla blaa bla
-      tags: question?.tags.map((qt: any) => qt.tag?.name) || [],
+      tags: question?.tags.map((tag) => tag.name) || [],
     },
   });
-
-  //
-  const handleCreateQuestion = (data: any) => {
-    //// handlling quetion creatign
-    startTransition(async () => {
-      if (isEdit && question) {
-        // const intId = parseInt(question?.id);
-        const result = await editQuestion({
-          questionId: question?.id,
-          ...data,
-        });
-
-        if (result.success) {
-          toast("Question updated successfully");
-
-          if (result.data) router.push(ROUTES.QUESTION(result.data.id));
-        } else {
-          toast("error could not update question");
-        }
-
-        return;
-      }
-
-      const result = await createQuestion(data);
-
-      if (result.success) {
-        toast("Question created successfully");
-
-        if (result.data) router.push(ROUTES.QUESTION(result.data.id));
-      } else {
-        toast("something went wring");
-      }
-    });
-  };
-  const handleTagRemove = (tag: string, field: { value: string[] }) => {
-    const newTags = field.value.filter((t) => t !== tag);
-
-    form.setValue("tags", newTags);
-
-    if (newTags.length === 0) {
-      form.setError("tags", {
-        type: "manual",
-        message: "Tags are required",
-      });
-    }
-  };
 
   const handleInputKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
@@ -120,6 +75,66 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
         });
       }
     }
+  };
+
+  const handleTagRemove = (tag: string, field: { value: string[] }) => {
+    const newTags = field.value.filter((t) => t !== tag);
+
+    form.setValue("tags", newTags);
+
+    if (newTags.length === 0) {
+      form.setError("tags", {
+        type: "manual",
+        message: "Tags are required",
+      });
+    }
+  };
+
+  const handleCreateQuestion = async (
+    data: z.infer<typeof AskQuestionSchema>
+  ) => {
+    startTransition(async () => {
+      if (isEdit && question) {
+        const result = await editQuestion({
+          questionId: question?._id,
+          ...data,
+        });
+
+        if (result.success) {
+          toast({
+            title: "Success",
+            description: "Question updated successfully",
+          });
+
+          if (result.data) router.push(ROUTES.QUESTION(result.data._id));
+        } else {
+          toast({
+            title: `Error ${result.status}`,
+            description: result.error?.message || "Something went wrong",
+            variant: "destructive",
+          });
+        }
+
+        return;
+      }
+
+      const result = await createQuestion(data);
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Question created successfully",
+        });
+
+        if (result.data) router.push(ROUTES.QUESTION(result.data._id));
+      } else {
+        toast({
+          title: `Error ${result.status}`,
+          description: result.error?.message || "Something went wrong",
+          variant: "destructive",
+        });
+      }
+    });
   };
 
   return (
@@ -188,24 +203,20 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
                     className="paragraph-regular background-light700_dark300 light-border-2 text-dark300_light700 no-focus min-h-[56px] border"
                     placeholder="Add tags..."
                     onKeyDown={(e) => handleInputKeyDown(e, field)}
-                    // {...fields}
                   />
                   {field.value.length > 0 && (
                     <div className="flex-start mt-2.5 flex-wrap gap-2.5">
-                      {field?.value?.map((tag: string) => {
-                        // const tagid = parseInt(tag);
-                        return (
-                          <TagCard
-                            key={`${tag} + ${Math.random()}`}
-                            id={tag}
-                            name={tag}
-                            compact
-                            remove
-                            isButton
-                            handleRemove={() => handleTagRemove(tag, field)}
-                          />
-                        );
-                      })}
+                      {field?.value?.map((tag: string) => (
+                        <TagCard
+                          key={tag}
+                          _id={tag}
+                          name={tag}
+                          compact
+                          remove
+                          isButton
+                          handleRemove={() => handleTagRemove(tag, field)}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>

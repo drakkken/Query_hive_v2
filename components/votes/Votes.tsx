@@ -1,9 +1,10 @@
 "use client";
+
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { use, useState } from "react";
-import { toast } from "sonner";
-// import { createVote } from "@/lib/actions/vote.action";
+
+import { toast } from "@/hooks/use-toast";
 import { createVote } from "@/lib/actions/vote.action";
 import { formatNumber } from "@/lib/utils";
 
@@ -24,29 +25,34 @@ const Votes = ({
 }: Params) => {
   const session = useSession();
   const userId = session.data?.user?.id;
+
   const { success, data } = use(hasVotedPromise);
+
   const [isLoading, setIsLoading] = useState(false);
+
   const { hasUpvoted, hasDownvoted } = data || {};
 
   const handleVote = async (voteType: "upvote" | "downvote") => {
-    if (!userId) {
-      return toast.error("Please login to vote", {
+    if (!userId)
+      return toast({
+        title: "Please login to vote",
         description: "Only logged-in users can vote.",
       });
-    }
 
     setIsLoading(true);
-    const inti = parseInt(targetId);
+
     try {
       const result = await createVote({
-        inti,
+        targetId,
         targetType,
         voteType,
       });
-      // i added mew mew
+
       if (!result.success) {
-        return toast.error("Failed to vote", {
+        return toast({
+          title: "Failed to vote",
           description: result.error?.message,
+          variant: "destructive",
         });
       }
 
@@ -55,12 +61,15 @@ const Votes = ({
           ? `Upvote ${!hasUpvoted ? "added" : "removed"} successfully`
           : `Downvote ${!hasDownvoted ? "added" : "removed"} successfully`;
 
-      toast.success(successMessage, {
+      toast({
+        title: successMessage,
         description: "Your vote has been recorded.",
       });
     } catch {
-      toast.error("Failed to vote", {
+      toast({
+        title: "Failed to vote",
         description: "An error occurred while voting. Please try again later.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -81,6 +90,7 @@ const Votes = ({
           aria-label="Upvote"
           onClick={() => !isLoading && handleVote("upvote")}
         />
+
         <div className="flex-center background-light700_dark400 min-w-5 rounded-sm p-1">
           <p className="subtle-medium text-dark400_light900">
             {formatNumber(upvotes)}
@@ -102,6 +112,7 @@ const Votes = ({
           aria-label="Downvote"
           onClick={() => !isLoading && handleVote("downvote")}
         />
+
         <div className="flex-center background-light700_dark400 min-w-5 rounded-sm p-1">
           <p className="subtle-medium text-dark400_light900">
             {formatNumber(downvotes)}

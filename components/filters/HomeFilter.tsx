@@ -1,9 +1,9 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
-import { formUrlQuery, RemoveKeysFromQuery } from "@/lib/url";
+import { formUrlQuery, removeKeysFromUrlQuery } from "@/lib/url";
 import { cn } from "@/lib/utils";
 
 import { Button } from "../ui/button";
@@ -21,18 +21,13 @@ const HomeFilter = () => {
   const filterParams = searchParams.get("filter");
   const [active, setActive] = useState(filterParams || "");
 
-  //    useEffect(() => {
-  //     const filterParams = searchParams.get("filter");
-  //     setActive(filterParams || "");
-  //   }, [searchParams]);
-
   const handleTypeClick = (filter: string) => {
     let newUrl = "";
 
     if (filter === active) {
       setActive("");
 
-      newUrl = RemoveKeysFromQuery({
+      newUrl = removeKeysFromUrlQuery({
         params: searchParams.toString(),
         keysToRemove: ["filter"],
       });
