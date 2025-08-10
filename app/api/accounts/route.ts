@@ -1,10 +1,11 @@
-import { PrismaClient } from "@/lib/generated/prisma";
+// import { PrismaClient } from "@/lib/generated/prisma";
 import handleError from "@/lib/handlers/error";
 import { ForbiddenError, ValidationError } from "@/lib/http-error";
+import prisma from "@/lib/prisma";
 import { AccountSchema, UserSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {

@@ -4,6 +4,7 @@ import HomeFilter from "@/components/filters/HomeFilter";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
 import ROUTES from "@/constants/routes";
+import { api } from "@/lib/api";
 import { SearchParams } from "next/dist/server/request/search-params";
 import Link from "next/link";
 
@@ -58,7 +59,19 @@ const questions = [
     createdAt: new Date(),
   },
 ];
+
+// const test = async () => {
+//   try {
+//     return await api.users.getAll();
+//   } catch (e) {
+//     console.log(e);
+//   }
+// };
 const page = async ({ searchParams }: any) => {
+  // console.log(await test());
+
+  const session = await auth();
+  console.log(session);
   const { query = "", filter = "" } = await searchParams;
   const filteredQuestions = questions.filter((question) => {
     const matchesQuery = question.title
