@@ -26,19 +26,19 @@ interface RemoveUrlQueryParams {
 }
 
 interface Tag {
-  tagId: string;
+  _id: string;
   name: string;
   questions?: number;
 }
 
 interface Author {
-  id: number;
+  _id: string;
   name: string;
   image: string;
 }
 
 interface Question {
-  id: number;
+  _id: string;
   title: string;
   content: string;
   tags: Tag[];
@@ -51,7 +51,7 @@ interface Question {
 }
 
 interface Answer {
-  id: string;
+  _id: string;
   author: Author;
   content: string;
   upvotes: number;
@@ -74,13 +74,13 @@ interface PaginatedSearchParams {
 }
 
 interface Collection {
-  id: string;
+  _id: string;
   author: string | Author;
   question: Question;
 }
 
 interface User {
-  id: string;
+  _id: string;
   name: string;
   username: string;
   email: string;

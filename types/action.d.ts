@@ -23,32 +23,32 @@ interface CreateQuestionParams {
 }
 
 interface EditQuestionParams extends CreateQuestionParams {
-  questionId: number;
+  questionId: string;
 }
 
 interface GetQuestionParams {
-  questionId: number;
+  questionId: string;
 }
 
 interface GetTagQuestionsParams extends Omit<PaginatedSearchParams, "filter"> {
-  tagId: number;
+  tagId: string;
 }
 
 interface IncrementViewsParams {
-  questionId: number;
+  questionId: string;
 }
 
 interface CreateAnswerParams {
   content: string;
-  questionId: number;
+  questionId: string;
 }
 
 interface GetAnswersParams extends PaginatedSearchParams {
-  questionId: number;
+  questionId: string;
 }
 
 interface CreateVoteParams {
-  targetId: number;
+  targetId: string;
   targetType: "question" | "answer";
   voteType: "upvote" | "downvote";
 }
@@ -65,32 +65,32 @@ interface HasVotedResponse {
 }
 
 interface CollectionBaseParams {
-  questionId: number;
+  questionId: string;
 }
 
 interface GetUserParams {
-  userId: number;
+  userId: string;
 }
 
 interface GetUserQuestionsParams
   extends Omit<PaginatedSearchParams, "query | filter | sort"> {
-  userId: number;
+  userId: string;
 }
 
 interface GetUserAnswersParams extends PaginatedSearchParams {
-  userId: number;
+  userId: string;
 }
 
 interface GetUserTagsParams {
-  userId: number;
+  userId: string;
 }
 
 interface DeleteQuestionParams {
-  questionId: number;
+  questionId: string;
 }
 
 interface DeleteAnswerParams {
-  answerId: number;
+  answerId: string;
 }
 
 interface CreateInteractionParams {
@@ -103,20 +103,20 @@ interface CreateInteractionParams {
     | "edit"
     | "delete"
     | "search";
-  actionId: number;
-  authorId: number;
+  actionId: string;
+  authorId: string;
   actionTarget: "question" | "answer";
 }
 
 interface UpdateReputationParams {
   interaction: IInteractionDoc;
   session: mongoose.ClientSession;
-  performerId: number;
-  authorId: number;
+  performerId: string;
+  authorId: string;
 }
 
 interface RecommendationParams {
-  userId: number;
+  userId: string;
   query?: string;
   skip: number;
   limit: number;

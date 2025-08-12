@@ -10,25 +10,32 @@ interface RemoveUrlQueryParams {
   params: string;
   keysToRemove: string[];
 }
+
 export const formUrlQuery = ({ params, key, value }: UrlQueryParams) => {
-  const currentUrl = qs.parse(params);
-  currentUrl[key] = value;
-  return qs.stringifyUrl({ url: window.location.pathname, query: currentUrl });
+  const queryString = qs.parse(params);
+
+  queryString[key] = value;
+
+  return qs.stringifyUrl({
+    url: window.location.pathname,
+    query: queryString,
+  });
 };
 
-export const RemoveKeysFromQuery = ({
+export const removeKeysFromUrlQuery = ({
   params,
   keysToRemove,
 }: RemoveUrlQueryParams) => {
-  const currentUrl = qs.parse(params);
+  const queryString = qs.parse(params);
+
   keysToRemove.forEach((key) => {
-    delete currentUrl[key];
+    delete queryString[key];
   });
 
   return qs.stringifyUrl(
     {
       url: window.location.pathname,
-      query: currentUrl,
+      query: queryString,
     },
     { skipNull: true }
   );

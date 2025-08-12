@@ -1,9 +1,11 @@
 import { FilterQuery } from "mongoose";
 import action from "../handlers/action";
 import handleError from "../handlers/error";
-import { PaginatedSearchParamsSchema } from "../validations";
-import { Tag } from "@/database";
-import dbConnect from "../mongoose";
+import {
+  GetTagQuestionsSchema,
+  PaginatedSearchParamsSchema,
+} from "../validations";
+import { Question, Tag } from "@/database";
 
 export const getTags = async (
   params: PaginatedSearchParams
@@ -70,15 +72,57 @@ export const getTags = async (
   }
 };
 
-export const getTopTags = async (): Promise<ActionResponse<Tag[]>> => {
-  try {
-    await dbConnect();
+export const getTagQuestions = async (
+  params: GetTagQuestionsParams
+): Promise<
+  ActionResponse<{ tag: Tag; questions: Question[]; isNext: boolean }>
+> => {
+  const validationResult = await action({
+    params,
+    schema: GetTagQuestionsSchema,
+  });
 
-    const tags = await Tag.find().sort({ questions: -1 }).limit(5);
+  if (validationResult instanceof Error) {
+    return handleError(validationResult) as ErrorResponse;
+  }
+
+  const { tagId, page = 1, pageSize = 10, query } = params;
+
+  const skip = (Number(page) - 1) * pageSize;
+  const limit = Number(pageSize);
+
+  try {
+    const tag = await Tag.findById(tagId);
+    if (!tag) throw new Error("Tag not found");
+
+    const filterQuery: FilterQuery<typeof Question> = {
+      tags: { $in: [tagId] },
+    };
+
+    if (query) {
+      filterQuery.title = { $regex: query, $options: "i" };
+    }
+
+    const totalQuestions = await Question.countDocuments(filterQuery);
+
+    const questions = await Question.find(filterQuery)
+      .select("_id title views answers upvotes downvotes author createdAt")
+      .populate([
+        { path: "author", select: "name image" },
+        { path: "tags", select: "name" },
+      ])
+      .skip(skip)
+      .limit(limit);
+
+    const isNext = totalQuestions > skip + questions.length;
 
     return {
       success: true,
-      data: JSON.parse(JSON.stringify(tags)),
+      data: {
+        tag: JSON.parse(JSON.stringify(tag)),
+        questions: JSON.parse(JSON.stringify(questions)),
+        isNext,
+      },
     };
   } catch (error) {
     return handleError(error) as ErrorResponse;

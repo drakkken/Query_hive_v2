@@ -1,11 +1,14 @@
 "use server";
 
+import mongoose, { FilterQuery, Types } from "mongoose";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { cache } from "react";
 
 import { auth } from "@/auth";
-import prisma from "../prisma";
+import { Answer, Collection, Interaction, Vote } from "@/database";
+import Question, { IQuestionDoc } from "@/database/question.model";
+import TagQuestion from "@/database/tag-question.model";
+import Tag, { ITagDoc } from "@/database/tag.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import {
@@ -17,11 +20,13 @@ import {
   PaginatedSearchParamsSchema,
 } from "@/lib/validations";
 
-// import { createInteraction } from "./interaction.action";
+import dbConnect from "../mongoose";
+import { createInteraction } from "./interaction.action";
+import { cache } from "react";
 
 export async function createQuestion(
   params: CreateQuestionParams
-): Promise<ActionResponse<any>> {
+): Promise<ActionResponse<Question>> {
   const validationResult = await action({
     params,
     schema: AskQuestionSchema,
@@ -33,90 +38,68 @@ export async function createQuestion(
   }
 
   const { title, content, tags } = validationResult.params!;
-  const userId = parseInt(validationResult.session?.user?.id!);
+  const userId = validationResult.session?.user?.id;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the question
-      const question = await tx.question.create({
-        data: {
-          title,
-          content,
-          authorId: userId,
-        },
+    const [question] = await Question.create(
+      [{ title, content, author: userId }],
+      { session }
+    );
+
+    if (!question) throw new Error("Failed to create the question");
+
+    const tagIds: mongoose.Types.ObjectId[] = [];
+    const tagQuestionDocuments = [];
+
+    for (const tag of tags) {
+      const existingTag = await Tag.findOneAndUpdate(
+        { name: { $regex: new RegExp(`^${tag}$`, "i") } },
+        { $setOnInsert: { name: tag }, $inc: { questions: 1 } },
+        { upsert: true, new: true, session }
+      );
+
+      tagIds.push(existingTag._id);
+      tagQuestionDocuments.push({
+        tag: existingTag._id,
+        question: question._id,
       });
+    }
 
-      // Process tags
-      const tagOperations = tags.map(async (tagName) => {
-        // Find or create tag
-        const tag = await tx.tag.upsert({
-          where: {
-            name: tagName.toLowerCase(),
-          },
-          create: {
-            name: tagName,
-            questions: 1,
-          },
-          update: {
-            questions: {
-              increment: 1,
-            },
-          },
-        });
+    await TagQuestion.insertMany(tagQuestionDocuments, { session });
 
-        // Create tag-question relationship using QuestionTag
-        await tx.questionTag.create({
-          data: {
-            tagId: tag.id,
-            questionId: question.id,
-          },
-        });
+    await Question.findByIdAndUpdate(
+      question._id,
+      { $push: { tags: { $each: tagIds } } },
+      { session }
+    );
 
-        return tag.id;
+    // log the interaction
+    after(async () => {
+      await createInteraction({
+        action: "post",
+        actionId: question._id.toString(),
+        actionTarget: "question",
+        authorId: userId as string,
       });
-
-      await Promise.all(tagOperations);
-
-      // Return question with relations
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      const updatedQuestion = await tx.question.findUnique({
-        where: { id: question.id },
-        include: {
-          tags: {
-            include: {
-              tag: {
-                select: { id: true, name: true },
-              },
-            },
-          },
-          author: {
-            select: { id: true, name: true, image: true },
-          },
-        },
-      });
-
-      return updatedQuestion;
     });
 
-    // Log the interaction outside transaction
-    // after(async () => {
-    //   await createInteraction({
-    //     action: "post",
-    //     actionId: result!.id.toString(),
-    //     actionTarget: "question",
-    //     authorId: userId.toString(),
-    //   });
-    // });
+    await session.commitTransaction();
 
-    return { success: true, data: JSON.parse(JSON.stringify(result)) };
+    return { success: true, data: JSON.parse(JSON.stringify(question)) };
   } catch (error) {
+    await session.abortTransaction();
     return handleError(error) as ErrorResponse;
+  } finally {
+    await session.endSession();
   }
 }
 
 export async function editQuestion(
   params: EditQuestionParams
-): Promise<ActionResponse<any>> {
+): Promise<ActionResponse<IQuestionDoc>> {
   const validationResult = await action({
     params,
     schema: EditQuestionSchema,
@@ -128,114 +111,93 @@ export async function editQuestion(
   }
 
   const { title, content, tags, questionId } = validationResult.params!;
-  const userId = parseInt(validationResult.session?.user?.id!);
-  const questionIdInt = questionId;
+  const userId = validationResult.session?.user?.id;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Get question with current tags
-      const question = await tx.question.findUnique({
-        where: { id: questionIdInt },
-        include: {
-          tags: {
-            include: {
-              tag: true,
-            },
-          },
-        },
-      });
+    const question = await Question.findById(questionId).populate("tags");
+    if (!question) throw new Error("Question not found");
 
-      if (!question) throw new Error("Question not found");
-      if (question.authorId !== userId) {
-        throw new Error("You are not authorized to edit this question");
+    if (question.author.toString() !== userId) {
+      throw new Error("You are not authorized to edit this question");
+    }
+
+    if (question.title !== title || question.content !== content) {
+      question.title = title;
+      question.content = content;
+      await question.save({ session });
+    }
+
+    // Determine tags to add and remove
+    const tagsToAdd = tags.filter(
+      (tag) =>
+        !question.tags.some(
+          (t: ITagDoc) => t.name.toLowerCase() === tag.toLowerCase()
+        )
+    );
+
+    const tagsToRemove = question.tags.filter(
+      (tag: ITagDoc) =>
+        !tags.some((t) => t.toLowerCase() === tag.name.toLowerCase())
+    );
+
+    // Add new tags
+    const newTagDocuments = [];
+    if (tagsToAdd.length > 0) {
+      for (const tag of tagsToAdd) {
+        const newTag = await Tag.findOneAndUpdate(
+          { name: { $regex: `^${tag}$`, $options: "i" } },
+          { $setOnInsert: { name: tag }, $inc: { questions: 1 } },
+          { upsert: true, new: true, session }
+        );
+
+        if (newTag) {
+          newTagDocuments.push({ tag: newTag._id, question: questionId });
+          question.tags.push(newTag._id);
+        }
       }
+    }
 
-      // Update question title and content if changed
-      if (question.title !== title || question.content !== content) {
-        await tx.question.update({
-          where: { id: questionIdInt },
-          data: { title, content },
-        });
-      }
+    // Remove tags
+    if (tagsToRemove.length > 0) {
+      const tagIdsToRemove = tagsToRemove.map((tag: ITagDoc) => tag._id);
 
-      // Get current tag names
-      const currentTagNames = question.tags.map((qt) =>
-        qt.tag.name.toLowerCase()
+      await Tag.updateMany(
+        { _id: { $in: tagIdsToRemove } },
+        { $inc: { questions: -1 } },
+        { session }
       );
-      const newTagNames = tags.map((tag) => tag.toLowerCase());
 
-      // Find tags to add and remove
-      const tagsToAdd = newTagNames.filter(
-        (tag) => !currentTagNames.includes(tag)
-      );
-      const tagsToRemove = currentTagNames.filter(
-        (tag) => !newTagNames.includes(tag)
+      await TagQuestion.deleteMany(
+        { tag: { $in: tagIdsToRemove }, question: questionId },
+        { session }
       );
 
-      // Remove old tags
-      if (tagsToRemove.length > 0) {
-        const tagsToRemoveIds = question.tags
-          .filter((qt) => tagsToRemove.includes(qt.tag.name.toLowerCase()))
-          .map((qt) => qt.tag.id);
+      question.tags = question.tags.filter(
+        (tag: mongoose.Types.ObjectId) =>
+          !tagIdsToRemove.some((id: mongoose.Types.ObjectId) =>
+            id.equals(tag._id)
+          )
+      );
+    }
 
-        // Decrement questions count for removed tags
-        await tx.tag.updateMany({
-          where: { id: { in: tagsToRemoveIds } },
-          data: { questions: { decrement: 1 } },
-        });
+    // Insert new TagQuestion documents
+    if (newTagDocuments.length > 0) {
+      await TagQuestion.insertMany(newTagDocuments, { session });
+    }
 
-        // Remove QuestionTag relationships
-        await tx.questionTag.deleteMany({
-          where: {
-            tagId: { in: tagsToRemoveIds },
-            questionId: questionIdInt,
-          },
-        });
-      }
+    // Save the updated question
+    await question.save({ session });
+    await session.commitTransaction();
 
-      // Add new tags
-      if (tagsToAdd.length > 0) {
-        const newTagOperations = tagsToAdd.map(async (tagName) => {
-          const tag = await tx.tag.upsert({
-            where: { name: tagName },
-            create: { name: tagName, questions: 1 },
-            update: { questions: { increment: 1 } },
-          });
-
-          await tx.questionTag.create({
-            data: {
-              tagId: tag.id,
-              questionId: questionIdInt,
-            },
-          });
-
-          return tag.id;
-        });
-
-        await Promise.all(newTagOperations);
-      }
-
-      // Return updated question
-      return await tx.question.findUnique({
-        where: { id: questionIdInt },
-        include: {
-          tags: {
-            include: {
-              tag: {
-                select: { id: true, name: true },
-              },
-            },
-          },
-          author: {
-            select: { id: true, name: true, image: true },
-          },
-        },
-      });
-    });
-
-    return { success: true, data: JSON.parse(JSON.stringify(result)) };
+    return { success: true, data: JSON.parse(JSON.stringify(question)) };
   } catch (error) {
+    await session.abortTransaction();
     return handleError(error) as ErrorResponse;
+  } finally {
+    await session.endSession();
   }
 }
 
@@ -252,24 +214,11 @@ export const getQuestion = cache(async function getQuestion(
   }
 
   const { questionId } = validationResult.params!;
-  const questionIdInt = questionId;
 
   try {
-    const question = await prisma.question.findUnique({
-      where: { id: questionIdInt },
-      include: {
-        tags: {
-          include: {
-            tag: {
-              select: { id: true, name: true },
-            },
-          },
-        },
-        author: {
-          select: { id: true, name: true, image: true },
-        },
-      },
-    });
+    const question = await Question.findById(questionId)
+      .populate("tags", "_id name")
+      .populate("author", "_id name image");
 
     if (!question) throw new Error("Question not found");
 
@@ -285,70 +234,49 @@ export async function getRecommendedQuestions({
   skip,
   limit,
 }: RecommendationParams) {
-  const userIdInt = userId;
+  const interactions = await Interaction.find({
+    user: new Types.ObjectId(userId),
+    actionType: "question",
+    action: { $in: ["view", "upvote", "bookmark", "post"] },
+  })
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
 
-  // Get user interactions
-  const interactions = await prisma.interaction.findMany({
-    where: {
-      userId: userIdInt,
-      actionType: "question",
-      action: { in: ["view", "upvote", "bookmark", "post"] },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  const interactedQuestionIds = interactions.map((i) => i.actionId);
 
-  const interactedQuestionIds = interactions.map((i) => parseInt(i.actionId));
+  const interactedQuestions = await Question.find({
+    _id: { $in: interactedQuestionIds },
+  }).select("tags");
 
-  // Get tags from interacted questions
-  const interactedQuestions = await prisma.question.findMany({
-    where: { id: { in: interactedQuestionIds } },
-    include: {
-      tags: {
-        include: {
-          tag: true,
-        },
-      },
-    },
-  });
-
-  const allTagIds = interactedQuestions.flatMap((q) =>
-    q.tags.map((qt) => qt.tag.id)
+  const allTags = interactedQuestions.flatMap((q) =>
+    q.tags.map((tag: Types.ObjectId) => tag.toString())
   );
-  const uniqueTagIds = [...new Set(allTagIds)];
 
-  // Build where clause for recommendations
-  const whereClause: any = {
-    id: { notIn: interactedQuestionIds },
-    authorId: { not: userIdInt },
-    tags: { some: { tagId: { in: uniqueTagIds } } },
+  const uniqueTagIds = [...new Set(allTags)];
+
+  const recommendedQuery: FilterQuery<typeof Question> = {
+    _id: { $nin: interactedQuestionIds },
+    author: { $ne: new Types.ObjectId(userId) },
+    tags: { $in: uniqueTagIds.map((id) => new Types.ObjectId(id)) },
   };
 
   if (query) {
-    whereClause.OR = [
-      { title: { contains: query, mode: "insensitive" } },
-      { content: { contains: query, mode: "insensitive" } },
+    recommendedQuery.$or = [
+      { title: { $regex: query, $options: "i" } },
+      { content: { $regex: query, $options: "i" } },
     ];
   }
 
-  const total = await prisma.question.count({ where: whereClause });
+  const total = await Question.countDocuments(recommendedQuery);
 
-  const questions = await prisma.question.findMany({
-    where: whereClause,
-    include: {
-      tags: {
-        include: {
-          tag: {
-            select: { name: true },
-          },
-        },
-      },
-      author: { select: { name: true, image: true } },
-    },
-    orderBy: [{ upvotes: "desc" }, { views: "desc" }],
-    skip,
-    take: limit,
-  });
+  const questions = await Question.find(recommendedQuery)
+    .populate("tags", "name")
+    .populate("author", "name image")
+    .sort({ upvotes: -1, views: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
 
   return {
     questions: JSON.parse(JSON.stringify(questions)),
@@ -372,17 +300,18 @@ export async function getQuestions(params: PaginatedSearchParams): Promise<
   }
 
   const { page = 1, pageSize = 10, query, filter } = params;
+
   const skip = (Number(page) - 1) * pageSize;
   const limit = pageSize;
 
+  const filterQuery: FilterQuery<typeof Question> = {};
+  let sortCriteria = {};
+
   try {
-    // Handle recommendations
+    // Recommendations
     if (filter === "recommended") {
       const session = await auth();
-      //   const userId = session?.user?.id;
-      //   let userIdInt;
-      //   if (userId) userIdInt = parseInt(userId);
-      const userId = session?.user?.id ? Number(session.user.id) : null;
+      const userId = session?.user?.id;
 
       if (!userId) {
         return { success: true, data: { questions: [], isNext: false } };
@@ -398,53 +327,40 @@ export async function getQuestions(params: PaginatedSearchParams): Promise<
       return { success: true, data: recommended };
     }
 
-    // Build where clause
-    const whereClause: any = {};
-    let orderBy: any = { createdAt: "desc" };
-
-    // Search functionality
+    // Search
     if (query) {
-      whereClause.OR = [
-        { title: { contains: query, mode: "insensitive" } },
-        { content: { contains: query, mode: "insensitive" } },
+      filterQuery.$or = [
+        { title: { $regex: query, $options: "i" } },
+        { content: { $regex: query, $options: "i" } },
       ];
     }
 
-    // Apply filters
+    // Filters
     switch (filter) {
       case "newest":
-        orderBy = { createdAt: "desc" };
+        sortCriteria = { createdAt: -1 };
         break;
       case "unanswered":
-        whereClause.answers = 0;
-        orderBy = { createdAt: "desc" };
+        filterQuery.answers = 0;
+        sortCriteria = { createdAt: -1 };
         break;
       case "popular":
-        orderBy = { upvotes: "desc" };
+        sortCriteria = { upvotes: -1 };
         break;
       default:
-        orderBy = { createdAt: "desc" };
+        sortCriteria = { createdAt: -1 };
         break;
     }
 
-    const totalQuestions = await prisma.question.count({ where: whereClause });
+    const totalQuestions = await Question.countDocuments(filterQuery);
 
-    const questions = await prisma.question.findMany({
-      where: whereClause,
-      include: {
-        tags: {
-          include: {
-            tag: {
-              select: { name: true },
-            },
-          },
-        },
-        author: { select: { name: true, image: true } },
-      },
-      orderBy,
-      skip,
-      take: limit,
-    });
+    const questions = await Question.find(filterQuery)
+      .populate("tags", "name")
+      .populate("author", "name image")
+      .lean()
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(limit);
 
     const isNext = totalQuestions > skip + questions.length;
 
@@ -473,14 +389,14 @@ export async function incrementViews(
   }
 
   const { questionId } = validationResult.params!;
-  const questionIdInt = questionId;
 
   try {
-    const question = await prisma.question.update({
-      where: { id: questionIdInt },
-      data: { views: { increment: 1 } },
-      select: { views: true },
-    });
+    const question = await Question.findById(questionId);
+    if (!question) throw new Error("Question not found");
+
+    question.views += 1;
+
+    await question.save();
 
     return {
       success: true,
@@ -493,10 +409,11 @@ export async function incrementViews(
 
 export async function getHotQuestions(): Promise<ActionResponse<Question[]>> {
   try {
-    const questions = await prisma.question.findMany({
-      orderBy: [{ views: "desc" }, { upvotes: "desc" }],
-      take: 5,
-    });
+    await dbConnect();
+
+    const questions = await Question.find()
+      .sort({ views: -1, upvotes: -1 })
+      .limit(5);
 
     return {
       success: true,
@@ -522,94 +439,72 @@ export async function deleteQuestion(
 
   const { questionId } = validationResult.params!;
   const { user } = validationResult.session!;
-  const questionIdInt = questionId;
-  const userIdInt = parseInt(user?.id!);
+  const session = await mongoose.startSession();
 
   try {
-    await prisma.$transaction(async (tx) => {
-      // Get question to verify ownership
-      const question = await tx.question.findUnique({
-        where: { id: questionIdInt },
-        include: {
-          tags: {
-            include: {
-              tag: true,
-            },
-          },
-        },
-      });
+    session.startTransaction();
 
-      if (!question) throw new Error("Question not found");
-      if (question.authorId !== userIdInt) {
-        throw new Error("You are not authorized to delete this question");
-      }
+    const question = await Question.findById(questionId).session(session);
+    if (!question) throw new Error("Question not found");
 
-      // Delete collections
-      await tx.collection.deleteMany({
-        where: { questionId: questionIdInt },
-      });
+    if (question.author.toString() !== user?.id)
+      throw new Error("You are not authorized to delete this question");
 
-      // Delete QuestionTag relationships
-      await tx.questionTag.deleteMany({
-        where: { questionId: questionIdInt },
-      });
+    // Delete related entries inside the transaction
+    await Collection.deleteMany({ question: questionId }).session(session);
+    await TagQuestion.deleteMany({ question: questionId }).session(session);
 
-      // Decrement tag question counts
-      if (question.tags.length > 0) {
-        await tx.tag.updateMany({
-          where: { id: { in: question.tags.map((qt) => qt.tag.id) } },
-          data: { questions: { decrement: 1 } },
-        });
-      }
+    // For all tags of Question, find them and reduce their count
+    if (question.tags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: question.tags } },
+        { $inc: { questions: -1 } },
+        { session }
+      );
+    }
 
-      // Remove question votes
-      await tx.vote.deleteMany({
-        where: {
-          actionId: questionIdInt,
-          actionType: "question",
-        },
-      });
+    //  Remove all votes of the question
+    await Vote.deleteMany({
+      actionId: questionId,
+      actionType: "question",
+    }).session(session);
 
-      // Get and delete answers with their votes
-      const answers = await tx.answer.findMany({
-        where: { questionId: questionIdInt },
-        select: { id: true },
-      });
+    // Remove all answers and their votes of the question
+    const answers = await Answer.find({ question: questionId }).session(
+      session
+    );
 
-      if (answers.length > 0) {
-        const answerIds = answers.map((answer) => answer.id.toString());
+    if (answers.length > 0) {
+      await Answer.deleteMany({ question: questionId }).session(session);
 
-        await tx.vote.deleteMany({
-          where: {
-            actionId: { in: answerIds.map((id) => parseInt(id)) },
-            actionType: "answer",
-          },
-        });
+      await Vote.deleteMany({
+        actionId: { $in: answers.map((answer) => answer.id) },
+        actionType: "answer",
+      }).session(session);
+    }
 
-        await tx.answer.deleteMany({
-          where: { questionId: questionIdInt },
-        });
-      }
+    await Question.findByIdAndDelete(questionId).session(session);
 
-      // Finally delete the question (cascade will handle QuestionTag due to onDelete: Cascade)
-      await tx.question.delete({
-        where: { id: questionIdInt },
+    // log the interaction
+    after(async () => {
+      await createInteraction({
+        action: "delete",
+        actionId: questionId,
+        actionTarget: "question",
+        authorId: user?.id as string,
       });
     });
 
-    // Log interaction outside transaction
-    // after(async () => {
-    //   await createInteraction({
-    //     action: "delete",
-    //     actionId: questionId,
-    //     actionTarget: "question",
-    //     authorId: user?.id as string,
-    //   });
-    // });
+    await session.commitTransaction();
+    session.endSession();
 
     revalidatePath(`/profile/${user?.id}`);
+
     return { success: true };
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
     return handleError(error) as ErrorResponse;
   }
 }

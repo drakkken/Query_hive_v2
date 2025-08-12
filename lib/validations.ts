@@ -81,7 +81,7 @@ export const UserSchema = z.object({
 });
 
 export const AccountSchema = z.object({
-  userId: z.number(),
+  userId: z.string(),
   name: z.string().min(1, "Name is required"),
   image: z.string().url("Invalid image URL").optional(),
   password: z
@@ -115,11 +115,11 @@ export const SignInWithOAuthSchema = z.object({
 });
 
 export const EditQuestionSchema = AskQuestionSchema.extend({
-  questionId: z.number().min(1, "Question ID is required"),
+  questionId: z.string().min(1, "Question ID is required"),
 });
 
 export const GetQuestionSchema = z.object({
-  questionId: z.number().min(1, "Question ID is required"),
+  questionId: z.string().min(1, "Question ID is required"),
 });
 
 export const PaginatedSearchParamsSchema = z.object({
@@ -131,11 +131,11 @@ export const PaginatedSearchParamsSchema = z.object({
 });
 
 export const GetTagQuestionsSchema = PaginatedSearchParamsSchema.extend({
-  tagId: z.number().min(1, "Tag ID is required"),
+  tagId: z.string().min(1, "Tag ID is required"),
 });
 
 export const IncrementViewsSchema = z.object({
-  questionId: z.number().min(1, "Question ID is required"),
+  questionId: z.string().min(1, "Question ID is required"),
 });
 
 export const AnswerSchema = z.object({
@@ -143,11 +143,11 @@ export const AnswerSchema = z.object({
 });
 
 export const AnswerServerSchema = AnswerSchema.extend({
-  questionId: z.number().min(1, "Question ID is required"),
+  questionId: z.string().min(1, "Question ID is required"),
 });
 
 export const GetAnswersSchema = PaginatedSearchParamsSchema.extend({
-  questionId: z.number().min(1, "Question ID is required"),
+  questionId: z.string().min(1, "Question ID is required"),
 });
 
 export const AIAnswerSchema = z.object({
@@ -166,7 +166,7 @@ export const AIAnswerSchema = z.object({
 });
 
 export const CreateVoteSchema = z.object({
-  targetId: z.number().min(1, "Target ID is required"),
+  targetId: z.string().min(1, "Target ID is required"),
   targetType: z.enum(["question", "answer"], {
     message: "Invalid target type. Must be 'question' or 'answer'.",
   }),
@@ -189,31 +189,31 @@ export const HasVotedSchema = CreateVoteSchema.pick({
 });
 
 export const CollectionBaseSchema = z.object({
-  questionId: z.number().min(1, "Question ID is required"),
+  questionId: z.string().min(1, "Question ID is required"),
 });
 
 export const GetUserSchema = z.object({
-  userId: z.number().min(1, "User ID is required"),
+  userId: z.string().min(1, "User ID is required"),
 });
 
 export const GetUserQuestionsSchema = PaginatedSearchParamsSchema.extend({
-  userId: z.number().min(1, "User ID is required"),
+  userId: z.string().min(1, "User ID is required"),
 });
 
 export const GetUsersAnswersSchema = PaginatedSearchParamsSchema.extend({
-  userId: z.number().min(1, "User ID is required"),
+  userId: z.string().min(1, "User ID is required"),
 });
 
 export const GetUserTagsSchema = z.object({
-  userId: z.number().min(1, "User ID is required"),
+  userId: z.string().min(1, "User ID is required"),
 });
 
 export const DeleteQuestionSchema = z.object({
-  questionId: z.number().min(1, "Question ID is required"),
+  questionId: z.string().min(1, "Question ID is required"),
 });
 
 export const DeleteAnswerSchema = z.object({
-  answerId: z.number().min(1, "Answer ID is required"),
+  answerId: z.string().min(1, "Answer ID is required"),
 });
 
 export const CreateInteractionSchema = z.object({
@@ -228,8 +228,8 @@ export const CreateInteractionSchema = z.object({
     "search",
   ]),
   actionTarget: z.enum(["question", "answer"]),
-  actionId: z.number().min(1),
-  authorId: z.number().min(1),
+  actionId: z.string().min(1),
+  authorId: z.string().min(1),
 });
 
 export const ProfileSchema = z.object({

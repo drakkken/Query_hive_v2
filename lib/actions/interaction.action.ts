@@ -1,9 +1,15 @@
-import prisma from "@/lib/prisma";
+import mongoose from "mongoose";
+
+import { Interaction, User } from "@/database";
+import { IInteractionDoc } from "@/database/interaction.model";
+
 import action from "../handlers/action";
 import handleError from "../handlers/error";
 import { CreateInteractionSchema } from "../validations";
 
-export async function createInteraction(params: any): Promise<any> {
+export async function createInteraction(
+  params: CreateInteractionParams
+): Promise<ActionResponse<IInteractionDoc>> {
   const validationResult = await action({
     params,
     schema: CreateInteractionSchema,
@@ -20,47 +26,45 @@ export async function createInteraction(params: any): Promise<any> {
     actionTarget,
     authorId, // person who owns the content (question/answer)
   } = validationResult.params!;
-
   const userId = validationResult.session?.user?.id;
 
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Create interaction
-      const interaction = await tx.interaction.create({
-        data: {
-          userId: parseInt(userId!),
+    const [interaction] = await Interaction.create(
+      [
+        {
+          user: userId,
           action: actionType,
           actionId,
-          actionType: actionTarget === "question" ? "question" : "answer",
+          actionType: actionTarget,
         },
-      });
+      ],
+      { session }
+    );
 
-      // Update reputation for both the performer and the content author
-      await updateReputation({
-        interaction,
-        tx,
-        performerId: userId!,
-        authorId,
-      });
-
-      return interaction;
+    // Update reputation for both the performer and the content author
+    await updateReputation({
+      interaction,
+      session,
+      performerId: userId!,
+      authorId,
     });
 
-    return { success: true, data: result };
+    await session.commitTransaction();
+
+    return { success: true, data: JSON.parse(JSON.stringify(interaction)) };
   } catch (error) {
+    await session.abortTransaction();
     return handleError(error) as ErrorResponse;
+  } finally {
+    await session.endSession();
   }
 }
 
-interface UpdateReputationParams {
-  interaction: any;
-  tx: any;
-  performerId: string;
-  authorId: string;
-}
-
 async function updateReputation(params: UpdateReputationParams) {
-  const { interaction, tx, performerId, authorId } = params;
+  const { interaction, session, performerId, authorId } = params;
   const { action, actionType } = interaction;
 
   let performerPoints = 0;
@@ -83,39 +87,31 @@ async function updateReputation(params: UpdateReputationParams) {
       break;
   }
 
-  const performerIdInt = parseInt(performerId);
-  const authorIdInt = parseInt(authorId);
+  if (performerId === authorId) {
+    await User.findByIdAndUpdate(
+      performerId,
+      { $inc: { reputation: authorPoints } },
+      { session }
+    );
 
-  // If same person, only update once with author points
-  if (performerIdInt === authorIdInt) {
-    await tx.user.update({
-      where: { id: performerIdInt },
-      data: {
-        reputation: {
-          increment: authorPoints,
-        },
-      },
-    });
     return;
   }
 
-  // Update both users' reputation
-  await Promise.all([
-    tx.user.update({
-      where: { id: performerIdInt },
-      data: {
-        reputation: {
-          increment: performerPoints,
+  await User.bulkWrite(
+    [
+      {
+        updateOne: {
+          filter: { _id: performerId },
+          update: { $inc: { reputation: performerPoints } },
         },
       },
-    }),
-    tx.user.update({
-      where: { id: authorIdInt },
-      data: {
-        reputation: {
-          increment: authorPoints,
+      {
+        updateOne: {
+          filter: { _id: authorId },
+          update: { $inc: { reputation: authorPoints } },
         },
       },
-    }),
-  ]);
+    ],
+    { session }
+  );
 }

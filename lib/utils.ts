@@ -1,81 +1,100 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { BADGE_CRITERIA } from "@/constants";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function getDevIconsClassName(techName: string) {
-  if (!techName) {
-    return "devicon-javascript-plain"; // or some default fallback
-  }
+export function getDeviconClassName(techName: string) {
   const normalizedTech = techName.replace(/[ .]/g, "").toLowerCase();
 
+  // Dictionary mapping possible technology names to Devicon class names
   const techMap: { [key: string]: string } = {
+    // JavaScript variations
     javascript: "devicon-javascript-plain",
     js: "devicon-javascript-plain",
 
+    // TypeScript variations
     typescript: "devicon-typescript-plain",
     ts: "devicon-typescript-plain",
 
+    // React variations
     react: "devicon-react-original",
     reactjs: "devicon-react-original",
 
+    // Next.js variations
     nextjs: "devicon-nextjs-plain",
     next: "devicon-nextjs-plain",
 
+    // Node.js variations
     nodejs: "devicon-nodejs-plain",
     node: "devicon-nodejs-plain",
 
+    // Bun.js variations
     bun: "devicon-bun-plain",
     bunjs: "devicon-bun-plain",
 
+    // Deno.js variations
     deno: "devicon-denojs-original",
     denojs: "devicon-denojs-plain",
 
+    // Python variations
     python: "devicon-python-plain",
 
+    // Java variations
     java: "devicon-java-plain",
 
+    // C++ variations
     "c++": "devicon-cplusplus-plain",
     cpp: "devicon-cplusplus-plain",
 
+    // C# variations
     "c#": "devicon-csharp-plain",
     csharp: "devicon-csharp-plain",
 
+    // PHP variations
     php: "devicon-php-plain",
 
+    // HTML variations
     html: "devicon-html5-plain",
     html5: "devicon-html5-plain",
 
+    // CSS variations
     css: "devicon-css3-plain",
     css3: "devicon-css3-plain",
 
+    // Git variations
     git: "devicon-git-plain",
 
+    // Docker variations
     docker: "devicon-docker-plain",
 
+    // MongoDB variations
     mongodb: "devicon-mongodb-plain",
     mongo: "devicon-mongodb-plain",
 
+    // MySQL variations
     mysql: "devicon-mysql-plain",
 
+    // PostgreSQL variations
     postgresql: "devicon-postgresql-plain",
     postgres: "devicon-postgresql-plain",
 
+    // AWS variations
     aws: "devicon-amazonwebservices-original",
     "amazon web services": "devicon-amazonwebservices-original",
 
+    // Tailwind CSS variations
     tailwind: "devicon-tailwindcss-original",
     tailwindcss: "devicon-tailwindcss-original",
   };
+
   return `${techMap[normalizedTech] || "devicon-devicon-plain"} colored`;
 }
 
 export function getTechDescription(techName: string): string {
-  if (!techName || typeof techName !== "string") {
-    return "This technology is widely used in software development, providing valuable features and capabilities.";
-  }
   const normalizedTech = techName.replace(/[ .]/g, "").toLowerCase();
 
   // Mapping technology names to descriptions
@@ -147,3 +166,61 @@ export const getTimeStamp = (createdAt: Date): string => {
 
   return `${diffDays} days ago`;
 };
+
+export function assignBadges(params: {
+  criteria: {
+    type: keyof typeof BADGE_CRITERIA;
+    count: number;
+  }[];
+}) {
+  const badgeCounts: Badges = {
+    GOLD: 0,
+    SILVER: 0,
+    BRONZE: 0,
+  };
+
+  const { criteria } = params;
+
+  criteria.forEach((item) => {
+    const { type, count } = item;
+    const badgeLevels = BADGE_CRITERIA[type];
+
+    Object.keys(badgeLevels).forEach((level) => {
+      if (count >= badgeLevels[level as keyof typeof badgeLevels]) {
+        badgeCounts[level as keyof Badges] += 1;
+      }
+    });
+  });
+
+  return badgeCounts;
+}
+
+export function processJobTitle(title: string | undefined | null): string {
+  // Check if title is undefined or null
+  if (title === undefined || title === null) {
+    return "No Job Title";
+  }
+
+  // Split the title into words
+  const words = title.split(" ");
+
+  // Filter out undefined or null and other unwanted words
+  const validWords = words.filter((word) => {
+    return (
+      word !== undefined &&
+      word !== null &&
+      word.toLowerCase() !== "undefined" &&
+      word.toLowerCase() !== "null"
+    );
+  });
+
+  // If no valid words are left, return the general title
+  if (validWords.length === 0) {
+    return "No Job Title";
+  }
+
+  // Join the valid words to create the processed title
+  const processedTitle = validWords.join(" ");
+
+  return processedTitle;
+}

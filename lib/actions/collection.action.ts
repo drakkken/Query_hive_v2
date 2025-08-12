@@ -1,8 +1,11 @@
 "use server";
 
+import mongoose, { PipelineStage } from "mongoose";
 import { revalidatePath } from "next/cache";
+
 import ROUTES from "@/constants/routes";
-import prisma from "@/lib/prisma";
+import { Collection, Question } from "@/database";
+
 import action from "../handlers/action";
 import handleError from "../handlers/error";
 import {
@@ -10,7 +13,9 @@ import {
   PaginatedSearchParamsSchema,
 } from "../validations";
 
-export async function toggleSaveQuestion(params: any): Promise<any> {
+export async function toggleSaveQuestion(
+  params: CollectionBaseParams
+): Promise<ActionResponse<{ saved: boolean }>> {
   const validationResult = await action({
     params,
     schema: CollectionBaseSchema,
@@ -25,28 +30,16 @@ export async function toggleSaveQuestion(params: any): Promise<any> {
   const userId = validationResult.session?.user?.id;
 
   try {
-    // Check if question exists
-    const question = await prisma.question.findUnique({
-      where: { id: parseInt(questionId) },
-    });
-
+    const question = await Question.findById(questionId);
     if (!question) throw new Error("Question not found");
 
-    // Check if collection already exists
-    const collection = await prisma.collection.findUnique({
-      where: {
-        authorId_questionId: {
-          authorId: parseInt(userId!),
-          questionId: parseInt(questionId),
-        },
-      },
+    const collection = await Collection.findOne({
+      question: questionId,
+      author: userId,
     });
 
     if (collection) {
-      // Remove from collection
-      await prisma.collection.delete({
-        where: { id: collection.id },
-      });
+      await Collection.findByIdAndDelete(collection._id);
 
       revalidatePath(ROUTES.QUESTION(questionId));
 
@@ -58,12 +51,9 @@ export async function toggleSaveQuestion(params: any): Promise<any> {
       };
     }
 
-    // Add to collection
-    await prisma.collection.create({
-      data: {
-        authorId: parseInt(userId!),
-        questionId: parseInt(questionId),
-      },
+    await Collection.create({
+      question: questionId,
+      author: userId,
     });
 
     revalidatePath(ROUTES.QUESTION(questionId));
@@ -79,7 +69,9 @@ export async function toggleSaveQuestion(params: any): Promise<any> {
   }
 }
 
-export async function hasSavedQuestion(params: any): Promise<any> {
+export async function hasSavedQuestion(
+  params: CollectionBaseParams
+): Promise<ActionResponse<{ saved: boolean }>> {
   const validationResult = await action({
     params,
     schema: CollectionBaseSchema,
@@ -94,13 +86,9 @@ export async function hasSavedQuestion(params: any): Promise<any> {
   const userId = validationResult.session?.user?.id;
 
   try {
-    const collection = await prisma.collection.findUnique({
-      where: {
-        authorId_questionId: {
-          authorId: parseInt(userId!),
-          questionId: parseInt(questionId),
-        },
-      },
+    const collection = await Collection.findOne({
+      question: questionId,
+      author: userId,
     });
 
     return {
@@ -114,7 +102,9 @@ export async function hasSavedQuestion(params: any): Promise<any> {
   }
 }
 
-export async function getSavedQuestions(params: any): Promise<any> {
+export async function getSavedQuestions(
+  params: PaginatedSearchParams
+): Promise<ActionResponse<{ collection: Collection[]; isNext: boolean }>> {
   const validationResult = await action({
     params,
     schema: PaginatedSearchParamsSchema,
@@ -131,101 +121,76 @@ export async function getSavedQuestions(params: any): Promise<any> {
   const skip = (Number(page) - 1) * pageSize;
   const limit = pageSize;
 
-  // Define sort options
-  let orderBy: any = { createdAt: "desc" }; // Default sorting
+  const sortOptions: Record<string, Record<string, 1 | -1>> = {
+    mostrecent: { "question.createdAt": -1 },
+    oldest: { "question.createdAt": 1 },
+    mostvoted: { "question.upvotes": -1 },
+    mostviewed: { "question.views": -1 },
+    mostanswered: { "question.answers": -1 },
+  };
 
-  switch (filter) {
-    case "mostrecent":
-      orderBy = { question: { createdAt: "desc" } };
-      break;
-    case "oldest":
-      orderBy = { question: { createdAt: "asc" } };
-      break;
-    case "mostvoted":
-      orderBy = { question: { upvotes: "desc" } };
-      break;
-    case "mostviewed":
-      orderBy = { question: { views: "desc" } };
-      break;
-    case "mostanswered":
-      orderBy = { question: { answers: "desc" } };
-      break;
-  }
+  const sortCriteria = sortOptions[filter as keyof typeof sortOptions] || {
+    "question.createdAt": -1,
+  };
 
   try {
-    // Build where clause
-    const whereClause: any = {
-      authorId: parseInt(userId!),
-    };
+    const pipeline: PipelineStage[] = [
+      { $match: { author: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: "questions",
+          localField: "question",
+          foreignField: "_id",
+          as: "question",
+        },
+      },
+      { $unwind: "$question" },
+      {
+        $lookup: {
+          from: "users",
+          localField: "question.author",
+          foreignField: "_id",
+          as: "question.author",
+        },
+      },
+      { $unwind: "$question.author" },
+      {
+        $lookup: {
+          from: "tags",
+          localField: "question.tags",
+          foreignField: "_id",
+          as: "question.tags",
+        },
+      },
+    ];
 
-    // Add search query if provided
     if (query) {
-      whereClause.question = {
-        OR: [
-          { title: { contains: query, mode: "insensitive" } },
-          { content: { contains: query, mode: "insensitive" } },
-        ],
-      };
+      pipeline.push({
+        $match: {
+          $or: [
+            { "question.title": { $regex: query, $options: "i" } },
+            { "question.content": { $regex: query, $options: "i" } },
+          ],
+        },
+      });
     }
 
-    // Get total count
-    const totalCount = await prisma.collection.count({
-      where: whereClause,
-    });
+    const [totalCount] = await Collection.aggregate([
+      ...pipeline,
+      { $count: "count" },
+    ]);
 
-    // Get saved questions with related data
-    const collections = await prisma.collection.findMany({
-      where: whereClause,
-      orderBy,
-      skip,
-      take: limit,
-      include: {
-        question: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
-            tags: {
-              include: {
-                tag: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-    });
+    pipeline.push({ $sort: sortCriteria }, { $skip: skip }, { $limit: limit });
+    pipeline.push({ $project: { question: 1, author: 1 } });
 
-    // Transform the data to flatten the tag structure
-    const transformedCollections = collections.map((collection) => ({
-      ...collection,
-      question: {
-        ...collection.question,
-        tags: collection.question.tags.map((tagRelation) => tagRelation.tag),
-      },
-    }));
+    const questions = await Collection.aggregate(pipeline);
 
-    const isNext = totalCount > skip + collections.length;
+    const isNext = totalCount.count > skip + questions.length;
 
     return {
       success: true,
       data: {
-        collection: transformedCollections,
+        collection: JSON.parse(JSON.stringify(questions)),
         isNext,
       },
     };
