@@ -1,9 +1,11 @@
 import { auth } from "@/auth";
 import QuestionCard from "@/components/cards/QuestionCard";
+import DataRenderer from "@/components/DataRenderer";
 import HomeFilter from "@/components/filters/HomeFilter";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
 import ROUTES from "@/constants/routes";
+import { EMPTY_QUESTION } from "@/constants/states";
 import { getQuestions } from "@/lib/actions/question.action";
 import { api } from "@/lib/api";
 import { SearchParams } from "next/dist/server/request/search-params";
@@ -115,25 +117,19 @@ const page = async ({ searchParams }: any) => {
         />
       </section>
       <HomeFilter />
-      {success ? (
-        <div className="mt-10 flex wifull flex-col gap-6">
-          {questions && questions.length > 0 ? (
-            questions.map((question) => (
-              // <h1 key={question.id}>{question.title}</h1>
-              //  { id, title, tags, author, createdAt, upvotes, answers, views },
-              <QuestionCard question={question} key={question.id} />
-            ))
-          ) : (
-            <div className="mt-10 flex w-full items-center  justify-center">
-              <p>no questions found </p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="mt-10 flex  w-full  items-center justify-center">
-          {error?.message || "failed "}
-        </div>
-      )}
+      <DataRenderer
+        success={success}
+        error={error}
+        data={questions}
+        empty={EMPTY_QUESTION}
+        render={(questions) => (
+          <div className="mt-10 flex w-full flex-col gap-6">
+            {questions.map((question) => (
+              <QuestionCard key={question.id} question={question} />
+            ))}
+          </div>
+        )}
+      />
     </>
   );
 };

@@ -565,7 +565,7 @@ export async function deleteQuestion(
       // Remove question votes
       await tx.vote.deleteMany({
         where: {
-          actionId: questionIdInt.toString(),
+          actionId: questionIdInt,
           actionType: "question",
         },
       });
@@ -581,7 +581,7 @@ export async function deleteQuestion(
 
         await tx.vote.deleteMany({
           where: {
-            actionId: { in: answerIds },
+            actionId: { in: answerIds.map((id) => parseInt(id)) },
             actionType: "answer",
           },
         });

@@ -149,7 +149,7 @@ model Collection {
 
 model Vote {
   id         String     @id @default(cuid())
-  actionId   String     // ID of the question or answer being voted on
+  actionId   Int    // ID of the question or answer being voted on
   actionType ActionType // Whether voting on question or answer
   voteType   VoteType   // Whether it's an upvote or downvote
   createdAt  DateTime   @default(now())
