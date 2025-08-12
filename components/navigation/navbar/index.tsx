@@ -16,7 +16,7 @@ const Navbar = async () => {
     <nav className="flex-between background-light900_dark200 fixed z-50 w-full gap-5  p-6 shadow-light-300 dark:shadow-none sm:px-12">
       <Link href={ROUTES.HOME} className="flex items-center gap-1">
         <Image
-          src="/assets/logo-light.svg"
+          src="/assets/logo-light.png"
           width={70}
           height={70}
           alt="Query Hive Logo"
