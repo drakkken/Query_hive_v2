@@ -29,13 +29,17 @@ If you're getting started and need assistance or encounter any bugs, you can joi
 
 ## 📸 Screenshots
 
+### Sign-Up
+
+![sign up](./public/assets/sign-up.png)
+
 ### Home Page
 
-![Home Page](./assets/home-page.png)
+![Home Page](./public/assets/home-page.png)
 
 ### Question Page
 
-![Question Page](./assets/ask-question.png)
+![Question Page](./public/assets/ask-question.png)
 
 ### Profile
 
