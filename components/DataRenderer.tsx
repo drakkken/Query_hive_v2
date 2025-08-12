@@ -89,7 +89,7 @@ const DataRenderer = <T,>({
         image={{
           light: "/images/light-error.png",
           dark: "/images/dark-error.png",
-          alt: "Error state illustration",
+          alt: "show that thinggggygg here ",
         }}
         title={error?.message || DEFAULT_ERROR.title}
         message={
@@ -106,9 +106,9 @@ const DataRenderer = <T,>({
     return (
       <StateSkeleton
         image={{
-          light: "/images/light-illustration.png",
+          light: "/images/dark-illustration.png",
           dark: "/images/dark-illustration.png",
-          alt: "Empty state illustration",
+          alt: "do the chatpgt thingy",
         }}
         title={empty.title}
         message={empty.message}
