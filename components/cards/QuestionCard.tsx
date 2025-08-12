@@ -23,7 +23,7 @@ const QuestionCard = ({
               {getTimeStamp(createdAt)}
             </span>
 
-            <Link href={ROUTES.QUESTION(id)}>
+            <Link href={ROUTES.QUESTION(String(id))}>
               <h3 className="sm:h3-semibold base-semibold text-dark200_light900 line-clamp-1 flex-1">
                 {title}
               </h3>
@@ -34,9 +34,18 @@ const QuestionCard = ({
         </div>
 
         <div className="mt-3.5 flex w-full flex-wrap gap-2">
-          {tags.map((tag: Tag) => (
-            <TagCard key={tag.id} id={tag.id} name={tag.name} compact />
-          ))}
+          {tags.map((tag: any) => {
+            console.log(tag.tagId);
+            console.log(tag);
+            return (
+              <TagCard
+                key={tag.tagId}
+                id={tag.tagId}
+                name={tag.tag.name}
+                compact
+              />
+            );
+          })}
         </div>
 
         <div className="flex-between mt-6 w-full flex-wrap gap-3">
@@ -45,7 +54,7 @@ const QuestionCard = ({
             alt={author.name}
             value={author.name}
             title={`• asked ${getTimeStamp(createdAt)}`}
-            href={ROUTES.PROFILE(author.id)}
+            href={ROUTES.PROFILE(String(author.id))}
             textStyles="body-medium text-dark400_light700"
             isAuthor
             titleStyles="max-sm:hidden"

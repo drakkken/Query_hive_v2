@@ -80,6 +80,7 @@ const TagCard = ({
 
         <p className="small-regular text-dark500_light700 mt-5 line-clamp-3 w-full">
           {/* {iconDescription} */}
+          {/* {name} */}
         </p>
 
         <p className="small-medium text-dark400_light500 mt-3.5">

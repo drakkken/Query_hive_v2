@@ -93,7 +93,7 @@ model Question {
 
 model QuestionTag {
   questionId Int
-  tagId      Int
+  tagId      String
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
@@ -102,7 +102,7 @@ model QuestionTag {
 }
 
 model Tag {
-  id        Int        @id @default(autoincrement())
+  id        String        @id @default(cuid())
   name      String        @unique
   questions Int           @default(0)  // Count of questions using this tag
   createdAt DateTime      @default(now())

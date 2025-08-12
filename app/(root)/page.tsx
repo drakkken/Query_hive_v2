@@ -4,6 +4,7 @@ import HomeFilter from "@/components/filters/HomeFilter";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
 import ROUTES from "@/constants/routes";
+import { getQuestions } from "@/lib/actions/question.action";
 import { api } from "@/lib/api";
 import { SearchParams } from "next/dist/server/request/search-params";
 import Link from "next/link";
@@ -72,18 +73,27 @@ const page = async ({ searchParams }: any) => {
 
   const session = await auth();
   console.log(session);
-  const { query = "", filter = "" } = await searchParams;
-  const filteredQuestions = questions.filter((question) => {
-    const matchesQuery = question.title
-      .toLowerCase()
-      .includes(query.toLowerCase());
 
-    const matchesFilter = filter
-      ? question.tags[0].name.toLowerCase() === filter.toLowerCase()
-      : true;
-
-    return matchesQuery && matchesFilter;
+  const { page, pageSize, query = "", filter = "" } = await searchParams;
+  const { success, data, error } = await getQuestions({
+    page: Number(page) || 1,
+    pageSize: Number(pageSize) || 10,
+    query,
+    filter,
   });
+
+  // const filteredQuestions = questions.filter((question) => {
+  //   const matchesQuery = question.title
+  //     .toLowerCase()
+  //     .includes(query.toLowerCase());
+
+  //   const matchesFilter = filter
+  //     ? question.tags[0].name.toLowerCase() === filter.toLowerCase()
+  //     : true;
+
+  //   return matchesQuery && matchesFilter;
+  // });
+  const { questions } = data || {};
   return (
     <>
       <section className="flex w-full flex-col-reverse sm:flex-row justify-between gap-4  sm:items-center ">
@@ -105,13 +115,25 @@ const page = async ({ searchParams }: any) => {
         />
       </section>
       <HomeFilter />
-      <div className="mt-10 flex wifull flex-col gap-6">
-        {filteredQuestions.map((question) => (
-          // <h1 key={question.id}>{question.title}</h1>
-          //  { id, title, tags, author, createdAt, upvotes, answers, views },
-          <QuestionCard question={question} key={question.id} />
-        ))}
-      </div>
+      {success ? (
+        <div className="mt-10 flex wifull flex-col gap-6">
+          {questions && questions.length > 0 ? (
+            questions.map((question) => (
+              // <h1 key={question.id}>{question.title}</h1>
+              //  { id, title, tags, author, createdAt, upvotes, answers, views },
+              <QuestionCard question={question} key={question.id} />
+            ))
+          ) : (
+            <div className="mt-10 flex w-full items-center  justify-center">
+              <p>no questions found </p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-10 flex  w-full  items-center justify-center">
+          {error?.message || "failed "}
+        </div>
+      )}
     </>
   );
 };

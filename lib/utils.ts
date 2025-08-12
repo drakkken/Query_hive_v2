@@ -6,6 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getDevIconsClassName(techName: string) {
+  if (!techName) {
+    return "devicon-javascript-plain"; // or some default fallback
+  }
   const normalizedTech = techName.replace(/[ .]/g, "").toLowerCase();
 
   const techMap: { [key: string]: string } = {

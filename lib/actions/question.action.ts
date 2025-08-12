@@ -78,6 +78,7 @@ export async function createQuestion(
       await Promise.all(tagOperations);
 
       // Return question with relations
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
       const updatedQuestion = await tx.question.findUnique({
         where: { id: question.id },
         include: {
@@ -115,7 +116,7 @@ export async function createQuestion(
 
 export async function editQuestion(
   params: EditQuestionParams
-): Promise<ActionResponse<Question>> {
+): Promise<ActionResponse<any>> {
   const validationResult = await action({
     params,
     schema: EditQuestionSchema,

@@ -26,19 +26,19 @@ interface RemoveUrlQueryParams {
 }
 
 interface Tag {
-  id: string;
+  tagId: string;
   name: string;
   questions?: number;
 }
 
 interface Author {
-  id: string;
+  id: number;
   name: string;
   image: string;
 }
 
 interface Question {
-  id: string;
+  id: number;
   title: string;
   content: string;
   tags: Tag[];

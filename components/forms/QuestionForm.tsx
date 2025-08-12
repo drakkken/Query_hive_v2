@@ -44,7 +44,8 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
     defaultValues: {
       title: question?.title || "",
       content: question?.content || "",
-      tags: question?.tags.map((tag) => tag.name) || [],
+      ///// i dont know how it is fethe in front end i forgot bla blaa bla
+      tags: question?.tags.map((qt: any) => qt.tag?.name) || [],
     },
   });
 
@@ -53,6 +54,7 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
     //// handlling quetion creatign
     startTransition(async () => {
       if (isEdit && question) {
+        // const intId = parseInt(question?.id);
         const result = await editQuestion({
           questionId: question?.id,
           ...data,
@@ -63,7 +65,7 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
 
           if (result.data) router.push(ROUTES.QUESTION(result.data.id));
         } else {
-          toast("error");
+          toast("error could not update question");
         }
 
         return;
@@ -190,17 +192,20 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
                   />
                   {field.value.length > 0 && (
                     <div className="flex-start mt-2.5 flex-wrap gap-2.5">
-                      {field?.value?.map((tag: string) => (
-                        <TagCard
-                          key={tag}
-                          id={tag}
-                          name={tag}
-                          compact
-                          remove
-                          isButton
-                          handleRemove={() => handleTagRemove(tag, field)}
-                        />
-                      ))}
+                      {field?.value?.map((tag: string) => {
+                        // const tagid = parseInt(tag);
+                        return (
+                          <TagCard
+                            key={`${tag} + ${Math.random()}`}
+                            id={tag}
+                            name={tag}
+                            compact
+                            remove
+                            isButton
+                            handleRemove={() => handleTagRemove(tag, field)}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </div>
