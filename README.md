@@ -43,11 +43,11 @@ If you're getting started and need assistance or encounter any bugs, you can joi
 
 ### Profile
 
-![Profile Page](./assets/profile.png)
+![Profile Page](./public/assets/profile.png)
 
 ### Tags
 
-![Profile Page](./assets/tags.png)
+![Profile Page](./public/assets/tags.png)
 
 ## <a name="tech-stack">⚙️ Tech Stack</a>
 
