@@ -1,26 +1,25 @@
 import { NextResponse } from "next/server";
-import handleError from "@/lib/handlers/error";
-import { UserSchema } from "@/lib/validations";
-import { NotFoundError } from "@/lib/http-error";
-import { PrismaClient } from "@/lib/generated/prisma";
 
-const prisma = new PrismaClient();
+import User from "@/database/user.model";
+import handleError from "@/lib/handlers/error";
+import { NotFoundError } from "@/lib/http-errors";
+import dbConnect from "@/lib/mongoose";
+import { UserSchema } from "@/lib/validations";
 
 // GET /api/users/[id]
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: idString } = await params;
-  const id = parseInt(idString);
-
-  if (!id || isNaN(id)) throw new NotFoundError("User");
+  const { id } = await params;
+  if (!id) throw new NotFoundError("User");
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id },
-    });
+    await dbConnect();
+
+    const user = await User.findById(id);
     if (!user) throw new NotFoundError("User");
+
     return NextResponse.json({ success: true, data: user }, { status: 200 });
   } catch (error) {
     return handleError(error, "api") as APIErrorResponse;
@@ -32,20 +31,16 @@ export async function DELETE(
   _: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: idString } = await params;
-  const id = parseInt(idString);
-
-  if (!id || isNaN(id)) throw new NotFoundError("User");
+  const { id } = await params;
+  if (!id) throw new NotFoundError("User");
 
   try {
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundError("User");
-    const deletedUser = await prisma.user.delete({ where: { id } });
+    await dbConnect();
 
-    return NextResponse.json(
-      { success: true, data: deletedUser },
-      { status: 200 }
-    );
+    const user = await User.findByIdAndDelete(id);
+    if (!user) throw new NotFoundError("User");
+
+    return NextResponse.json({ success: true, data: user }, { status: 200 });
   } catch (error) {
     return handleError(error, "api") as APIErrorResponse;
   }
@@ -56,21 +51,20 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: idString } = await params;
-  const id = parseInt(idString);
-
-  if (!id || isNaN(id)) throw new NotFoundError("User");
+  const { id } = await params;
+  if (!id) throw new NotFoundError("User");
 
   try {
+    await dbConnect();
+
     const body = await request.json();
     const validatedData = UserSchema.partial().parse(body);
 
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundError("User");
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: validatedData,
+    const updatedUser = await User.findByIdAndUpdate(id, validatedData, {
+      new: true,
     });
+
+    if (!updatedUser) throw new NotFoundError("User");
 
     return NextResponse.json(
       { success: true, data: updatedUser },

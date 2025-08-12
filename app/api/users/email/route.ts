@@ -1,49 +1,32 @@
 import { NextResponse } from "next/server";
 
+import User from "@/database/user.model";
 import handleError from "@/lib/handlers/error";
-import { ValidationError } from "@/lib/http-error";
-
+import { NotFoundError, ValidationError } from "@/lib/http-errors";
+import dbConnect from "@/lib/mongoose";
 import { UserSchema } from "@/lib/validations";
-import { PrismaClient } from "@/lib/generated/prisma";
-const prisma = new PrismaClient();
-
-export async function GET() {
-  try {
-    const users = await prisma.user.findMany();
-
-    return NextResponse.json({ success: true, data: users }, { status: 200 });
-  } catch (error) {
-    return handleError(error, "api") as APIErrorResponse;
-  }
-}
 
 export async function POST(request: Request) {
+  const { email } = await request.json();
+
   try {
-    const body = await request.json();
+    await dbConnect();
 
-    const validatedData = UserSchema.safeParse(body);
+    const validatedData = UserSchema.partial().safeParse({ email });
 
-    if (!validatedData.success) {
+    if (!validatedData.success)
       throw new ValidationError(validatedData.error.flatten().fieldErrors);
-    }
 
-    const { email, username } = validatedData.data;
+    const user = await User.findOne({ email });
+    if (!user) throw new NotFoundError("User");
 
-    const existingUser = await prisma.user.findFirst({
-      where: { email },
-    });
-    if (existingUser) throw new Error("User already exists");
-
-    const existingUsername = await prisma.user.findFirst({
-      where: { username },
-    });
-    if (existingUsername) throw new Error("Username already exists");
-
-    const newUser = await prisma.user.create({
-      data: validatedData.data,
-    });
-
-    return NextResponse.json({ success: true, data: newUser }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: user,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     return handleError(error, "api") as APIErrorResponse;
   }

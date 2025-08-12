@@ -1,44 +1,44 @@
-// import { PrismaClient } from "@/lib/generated/prisma";
+import { NextResponse } from "next/server";
+
+import Account from "@/database/account.model";
 import handleError from "@/lib/handlers/error";
-import { ForbiddenError, ValidationError } from "@/lib/http-error";
-import prisma from "@/lib/prisma";
-import { AccountSchema, UserSchema } from "@/lib/validations";
-import { NextRequest, NextResponse } from "next/server";
+import { ForbiddenError } from "@/lib/http-errors";
+import dbConnect from "@/lib/mongoose";
+import { AccountSchema } from "@/lib/validations";
 
-// const prisma = new PrismaClient();
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const accounts = await prisma.account.findMany();
+    await dbConnect();
+
+    const accounts = await Account.find();
+
     return NextResponse.json(
       { success: true, data: accounts },
       { status: 200 }
     );
-  } catch (e) {
-    return handleError(e, "api") as APIErrorResponse;
+  } catch (error) {
+    return handleError(error, "api") as APIErrorResponse;
   }
 }
 
 export async function POST(request: Request) {
   try {
+    await dbConnect();
     const body = await request.json();
+
     const validatedData = AccountSchema.parse(body);
-    const existingAccount = await prisma.account.findFirst({
-      where: {
-        provider: validatedData.provider,
-        providerAccountId: validatedData.providerAccountId,
-      },
+
+    const existingAccount = await Account.findOne({
+      provider: validatedData.provider,
+      providerAccountId: validatedData.providerAccountId,
     });
 
-    if (existingAccount) {
+    if (existingAccount)
       throw new ForbiddenError(
         "An account with the same provider already exists"
       );
-    }
 
-    const newAccount = await prisma.account.create({
-      data: validatedData,
-    });
+    const newAccount = await Account.create(validatedData);
 
     return NextResponse.json(
       { success: true, data: newAccount },
