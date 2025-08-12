@@ -10,10 +10,9 @@ import prisma from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
-    const { provider, providerAccountId } = await request.json();
+    const { providerAccountId } = await request.json();
 
-    const validatedData = AccountSchema.safeParse({
-      provider,
+    const validatedData = AccountSchema.partial().safeParse({
       providerAccountId,
     });
 

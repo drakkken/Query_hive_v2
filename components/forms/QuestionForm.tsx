@@ -2,6 +2,7 @@
 import { AskQuestionSchema } from "@/lib/validations";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React, { useRef, useTransition } from "react";
+import { ReloadIcon } from "@radix-ui/react-icons";
 import { useForm } from "react-hook-form";
 import TagCard from "../cards/TagCard";
 import { Button } from "../ui/button";
@@ -20,6 +21,9 @@ import { MDXEditorMethods } from "@mdxeditor/editor";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import z from "zod";
+import ROUTES from "@/constants/routes";
+import { toast } from "sonner";
+import { createQuestion, editQuestion } from "@/lib/actions/question.action";
 
 const Editor = dynamic(() => import("../editor/Editor"), {
   ssr: false,
@@ -45,8 +49,36 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
   });
 
   //
-  const handleCreateQuestion = () => {
+  const handleCreateQuestion = (data: any) => {
     //// handlling quetion creatign
+    startTransition(async () => {
+      if (isEdit && question) {
+        const result = await editQuestion({
+          questionId: question?.id,
+          ...data,
+        });
+
+        if (result.success) {
+          toast("Question updated successfully");
+
+          if (result.data) router.push(ROUTES.QUESTION(result.data.id));
+        } else {
+          toast("error");
+        }
+
+        return;
+      }
+
+      const result = await createQuestion(data);
+
+      if (result.success) {
+        toast("Question created successfully");
+
+        if (result.data) router.push(ROUTES.QUESTION(result.data.id));
+      } else {
+        toast("something went wring");
+      }
+    });
   };
   const handleTagRemove = (tag: string, field: { value: string[] }) => {
     const newTags = field.value.filter((t) => t !== tag);
@@ -188,14 +220,14 @@ const QuestionForm = ({ question, isEdit = false }: Params) => {
             disabled={isPending}
             className="primary-gradient w-fit !text-light-900"
           >
-            {/* {isPending ? (
+            {isPending ? (
               <>
                 <ReloadIcon className="mr-2 size-4 animate-spin" />
                 <span>Submitting</span>
               </>
             ) : (
               <>{isEdit ? "Edit" : "Ask a Question"}</>
-            )} */}
+            )}
           </Button>
         </div>
       </form>
