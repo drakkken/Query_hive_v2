@@ -35,7 +35,11 @@ If you're getting started and need assistance or encounter any bugs, you can joi
 
 ### Home Page
 
-![Home Page](./public/assets/home-page.png)
+![Home Page](./public/assets/ans.png)
+
+### Light-Mode
+
+![Profile Page](./public/assets/light.png)
 
 ### Question Page
 
