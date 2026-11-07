@@ -21,9 +21,43 @@ const spaceGrotesk = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "QueryHive",
+  metadataBase: new URL("https://query-hive-v2.vercel.app"),
+  title: {
+    default: "QueryHive | Programming Q&A Community for Developers",
+    template: "%s | QueryHive",
+  },
   description:
-    "A community-driven platform for asking and answering programming questions. Get help, share knowledge, and collaborate with developers from around the world. Explore topics in web development, mobile app development, algorithms, data structures, and more.",
+    "QueryHive is a community-driven Q&A platform where developers ask programming questions, share answers, get AI-powered help and find jobs. Explore web development, mobile apps, algorithms, data structures and more.",
+  applicationName: "QueryHive",
+  keywords: [
+    "QueryHive",
+    "programming questions",
+    "developer community",
+    "Q&A for developers",
+    "coding help",
+    "Next.js",
+    "React",
+    "JavaScript",
+    "TypeScript",
+    "MongoDB",
+    "algorithms",
+    "data structures",
+    "AI answers",
+    "developer jobs",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "QueryHive",
+    title: "QueryHive | Programming Q&A Community for Developers",
+    description:
+      "Ask programming questions, share answers, get AI-powered help and find developer jobs.",
+  },
+  twitter: {
+    card: "summary",
+    title: "QueryHive | Programming Q&A Community for Developers",
+    description:
+      "Ask programming questions, share answers, get AI-powered help and find developer jobs.",
+  },
   icons: {
     icon: "/assets/logo-light.png",
   },

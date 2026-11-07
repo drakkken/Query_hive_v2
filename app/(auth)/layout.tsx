@@ -1,7 +1,15 @@
+import { Metadata } from "next";
 import Image from "next/image";
 import { ReactNode } from "react";
 
 import SocialAuthForm from "@/components/forms/SocialAuthForm";
+
+export const metadata: Metadata = {
+  title: "Sign In or Join",
+  description:
+    "Sign in or create a free QueryHive account with email, GitHub or Google to ask questions, answer and save your favourites.",
+  keywords: ["sign in", "sign up", "join QueryHive", "developer account"],
+};
 
 const AuthLayout = ({ children }: { children: ReactNode }) => {
   return (

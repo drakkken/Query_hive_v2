@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import JobCard from "@/components/cards/JobCard";
 import JobsFilter from "@/components/filters/JobFilter";
 import Pagination from "@/components/Pagination";
@@ -6,6 +7,13 @@ import {
   fetchJobs,
   fetchLocation,
 } from "@/lib/actions/job.action";
+
+export const metadata: Metadata = {
+  title: "Find Jobs - Developer Openings",
+  description:
+    "Discover software developer jobs filtered by role and country, right alongside your programming Q&A.",
+  keywords: ["developer jobs", "software engineer jobs", "remote jobs", "tech careers"],
+};
 
 const Page = async ({ searchParams }: RouteParams) => {
   const { query, location, page } = await searchParams;

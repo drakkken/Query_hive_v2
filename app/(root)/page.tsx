@@ -14,9 +14,10 @@ import { EMPTY_QUESTION } from "@/constants/states";
 import { getQuestions } from "@/lib/actions/question.action";
 
 export const metadata: Metadata = {
-  title: "Dev Overflow | Home",
+  title: "Home - Latest Programming Questions",
   description:
-    "Discover different programming questions and answers with recommendations from the community.",
+    "Browse the latest programming questions and answers from the QueryHive developer community. Search, filter and discover recommended questions.",
+  keywords: ["programming questions", "developer Q&A", "coding help", "top questions"],
 };
 
 async function Home({ searchParams }: RouteParams) {

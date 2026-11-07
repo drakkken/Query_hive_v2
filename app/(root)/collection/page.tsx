@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import QuestionCard from "@/components/cards/QuestionCard";
 import DataRenderer from "@/components/DataRenderer";
 import CommonFilter from "@/components/filters/CommonFilter";
@@ -11,6 +12,13 @@ import { getSavedQuestions } from "@/lib/actions/collection.action";
 interface SearchParams {
   searchParams: Promise<{ [key: string]: string }>;
 }
+
+export const metadata: Metadata = {
+  title: "Saved Questions - Your Collection",
+  description:
+    "Your saved programming questions in one place. Search and filter the questions you bookmarked.",
+  keywords: ["saved questions", "bookmarks", "collection"],
+};
 
 const Collections = async ({ searchParams }: SearchParams) => {
   const { page, pageSize, query, filter } = await searchParams;

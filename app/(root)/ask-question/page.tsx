@@ -1,8 +1,16 @@
+import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import React from "react";
 
 import { auth } from "@/auth";
 import QuestionForm from "@/components/forms/QuestionForm";
+
+export const metadata: Metadata = {
+  title: "Ask a Question",
+  description:
+    "Ask a programming question and get answers from the QueryHive community or generate an AI-powered answer.",
+  keywords: ["ask a question", "programming help", "coding question"],
+};
 
 const AskQuestion = async () => {
   const session = await auth();

@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import TagCard from "@/components/cards/TagCard";
 import DataRenderer from "@/components/DataRenderer";
 import CommonFilter from "@/components/filters/CommonFilter";
@@ -7,6 +8,13 @@ import { TagFilters } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
 import { EMPTY_TAGS } from "@/constants/states";
 import { getTags } from "@/lib/actions/tag.action";
+
+export const metadata: Metadata = {
+  title: "Tags - Browse Topics",
+  description:
+    "Explore every programming topic on QueryHive. Browse tags like JavaScript, React and Python and see how many questions each one has.",
+  keywords: ["programming tags", "topics", "JavaScript", "React", "Python"],
+};
 
 const Tags = async ({ searchParams }: RouteParams) => {
   const { page, pageSize, query, filter } = await searchParams;
