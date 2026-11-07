@@ -1,7 +1,12 @@
 export const fetchLocation = async () => {
-  const response = await fetch("http://ip-api.com/json/?fields=country");
-  const location = await response.json();
-  return location.country;
+  try {
+    const response = await fetch("http://ip-api.com/json/?fields=country");
+    const location = await response.json();
+    return location.country ?? "";
+  } catch (error) {
+    console.log(error);
+    return "";
+  }
 };
 
 export const fetchCountries = async () => {
@@ -10,9 +15,10 @@ export const fetchCountries = async () => {
       "https://restcountries.com/v3.1/all?fields=name"
     );
     const result = await response.json();
-    return result;
+    return Array.isArray(result) ? result : [];
   } catch (error) {
     console.log(error);
+    return [];
   }
 };
 
@@ -24,14 +30,21 @@ export const fetchJobs = async (filters: JobFilterParams) => {
     "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
   };
 
-  const response = await fetch(
-    `https://jsearch.p.rapidapi.com/search?query=${query}&page=${page}`,
-    {
-      headers,
-    }
-  );
+  try {
+    const response = await fetch(
+      `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(
+        query
+      )}&page=${page}`,
+      {
+        headers,
+      }
+    );
 
-  const result = await response.json();
+    const result = await response.json();
 
-  return result.data;
+    return Array.isArray(result?.data) ? result.data : [];
+  } catch (error) {
+    console.log(error);
+    return [];
+  }
 };

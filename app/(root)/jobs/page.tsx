@@ -12,14 +12,15 @@ const Page = async ({ searchParams }: RouteParams) => {
   const userLocation = await fetchLocation();
 
   const jobs = await fetchJobs({
-    query: `${query}, ${location}` || `Software Engineer in ${userLocation}`,
+    query:
+      query || location
+        ? [query, location].filter(Boolean).join(", ")
+        : `Software Engineer in ${userLocation || "the world"}`,
     page: page ?? 1,
   });
 
   const countries = await fetchCountries();
   const parsedPage = parseInt(page ?? 1);
-
-  console.log(jobs);
 
   return (
     <>
